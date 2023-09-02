@@ -141,7 +141,7 @@ type Expr = Num | Id | App | Enclosed | OpApp
 // We have ML style function application instead of comma separation,
 // we handle parenthesis with a recursion,
 // and we build a tree directly
-const shuntingYard = (start: number, input: Token[]) => {
+const shuntingYard = (start: number, input: Token[]): [Expr[], number] => {
   const output: Expr[] = []
   const operatorStack: Op[] = []
 
@@ -188,10 +188,7 @@ const shuntingYard = (start: number, input: Token[]) => {
           } else {
             // next is an LPar
             const _: LPar = next
-            const {
-              output: [expr],
-              i: j,
-            } = shuntingYard(i + 1, input)
+            const [[expr], j] = shuntingYard(i + 1, input)
             args.push({ t: "Enclosed", e: expr })
             const t = input[j]
             if (t.t !== "RPar") {
@@ -209,10 +206,7 @@ const shuntingYard = (start: number, input: Token[]) => {
       }
       case "LPar": {
         const _: LPar = token
-        const {
-          output: [expr],
-          i: j,
-        } = shuntingYard(i + 1, input)
+        const [[expr], j] = shuntingYard(i + 1, input)
         output.push({ t: "Enclosed", e: expr })
         const t = input[j]
         if (t === undefined || t.t !== "RPar") {
@@ -229,7 +223,7 @@ const shuntingYard = (start: number, input: Token[]) => {
           pushExpression()
         }
         if (operatorStack.length === 0) {
-          return { output, i }
+          return [output, i]
         }
         operatorStack.pop()
         continue
@@ -239,16 +233,8 @@ const shuntingYard = (start: number, input: Token[]) => {
   while (operatorStack.length > 0) {
     pushExpression()
   }
-  return { output, i }
+  return [output, i]
 }
-
-const args: string = Deno.args.join(" ")
-
-const input: Token[] = tokenize(args)
-
-const {
-  output: [expr],
-} = shuntingYard(0, input)
 
 const showExprPrec = (expr: Expr | Op): string => {
   switch (expr.t) {
@@ -265,7 +251,6 @@ const showExprPrec = (expr: Expr | Op): string => {
       return "{" + showExprPrec(expr.e1) + expr.op.s + showExprPrec(expr.e2) + "}"
   }
 }
-console.log(showExprPrec(expr))
 
 const showExpr = (expr: Expr | Op): string => {
   switch (expr.t) {
@@ -282,7 +267,6 @@ const showExpr = (expr: Expr | Op): string => {
       return showExpr(expr.e1) + " " + expr.op.s + " " + showExpr(expr.e2)
   }
 }
-console.log(showExpr(expr))
 
 const showDepthNExpr = (showDepth: number, depth: number, expr: Expr | Op): string => {
   const nextDepth = depth + 1
@@ -314,6 +298,15 @@ const showDepthNExpr = (showDepth: number, depth: number, expr: Expr | Op): stri
   }
 }
 
-for (let i = 0; i < 12; i++) {
-  console.log(showDepthNExpr(i, 0, expr))
+const logDepthExpr = (expr: Expr) => {
+  for (let i = 0; i < 12; i++) {
+    console.log(showDepthNExpr(i, 0, expr))
+  }
 }
+
+const args: string = Deno.args.join(" ")
+const input: Token[] = tokenize(args)
+const [[expr], _] = shuntingYard(0, input)
+console.log(showExprPrec(expr))
+console.log(showExpr(expr))
+logDepthExpr(expr)
